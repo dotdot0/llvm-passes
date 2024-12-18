@@ -16,9 +16,9 @@ namespace{
         Type *t = gVar.getType();
         outs() << varName << ":";
         t->print(outs());
-        if(gVar.use_empty()){
-          outs() << "(Unused)";
-        }
+        // if(gVar.use_empty()){
+        //   outs() << "(Unused)";
+        // }
         outs() << "\n";
       } 
       return PreservedAnalyses::all();
@@ -27,7 +27,25 @@ namespace{
     static bool isRequired() {
       return true;
     }
-};
+  };
+
+  struct GlobalUnusedVarsPass: public PassInfoMixin<GlobalUnusedVarsPass>{
+    PreservedAnalyses run(Module &M, ModuleAnalysisManager &MPM)
+    {
+      auto globals = M.globals();
+      for(auto &gVar: globals){
+        if(gVar.user_empty()){
+          outs() << gVar.getName() << "(Unused)" << "\n";
+        }
+      }
+
+      return PreservedAnalyses::all();
+    }
+
+    static bool isRequired(){
+      return true;
+    }
+  };
 }
 
 
@@ -38,13 +56,15 @@ PassPluginLibraryInfo getPassPluginInfo()
     PB.registerPipelineParsingCallback(
         [&](StringRef name, ModulePassManager &MPM, ArrayRef<PassBuilder::PipelineElement>)
         {
-          if (name == "run-pass")
-          {
+          if(name == "globals"){
             MPM.addPass(GlobalVarsPass());
+            return true;
+          }else if(name=="gunused"){
+            MPM.addPass(GlobalUnusedVarsPass());
             return true;
           }
           return false;
-        });
+    });
   };
 
   return {LLVM_PLUGIN_API_VERSION, "GlobalVarsPass", LLVM_VERSION_STRING, callback};
